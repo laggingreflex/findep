@@ -1,6 +1,6 @@
 {
   "name": "findep",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Find out if your project has a specified dependency",
   "main": "index.js",
   "bin": "index.js",
