@@ -14,16 +14,29 @@ const argv = process.argv.slice(2)
 
 const fromCwd = (...p) => path.join(cwd, ...p)
 
-const depToFind = argv.find(a => !a.startsWith('-'))
-
-if (depToFind) {
-  console.log('Looking for \'' + depToFind + '\'...');
-} else {
+const checkInRegistry = ifArg('registry') || ifArg('R')
+let depToFind, projectToFindIn;
+const positionalArgs = argv.filter(a => !a.startsWith('-'))
+if (!positionalArgs.length) {
   console.error('Error: Need a dependency to find. Eg.: findep node-gyp')
   process.exit(1)
+} else if (positionalArgs.length === 1) {
+  depToFind = positionalArgs[0]
+} else if (positionalArgs.length === 2) {
+  depToFind = positionalArgs[1]
+  projectToFindIn = positionalArgs[0]
 }
 
-const checkInRegistry = ifArg('registry') || ifArg('R')
+if (projectToFindIn) {
+  if (!checkInRegistry) {
+    console.log('`-R` is required when looking for in another package to check in npm registry');
+    process.exit(1)
+  }
+  console.log('Looking for', depToFind, 'in', projectToFindIn, '...');
+} else {
+  console.log('Looking for', depToFind, '...');
+}
+
 if (checkInRegistry) {
   console.log('Checking in npm registry, this may take a while...');
 } else {
@@ -49,11 +62,16 @@ const loop = (deps, pDep) => Promise.all(Object.entries(deps).map(([dep, ver]) =
   } else {
     depsChecked.push(dep)
   }
-  let getJsonFromFile = readJsonFromFile(fromCwd('node_modules', dep, 'package.json'))
-  let getJson = getJsonFromFile;
-  if (checkInRegistry) {
-    getJson = getJson.catch(() => readJsonFromRegistry(dep))
+  let getJson = Promise.resolve()
+  if (projectToFindIn) {
+    getJson = getJson.then(() => readJsonFromRegistry(dep))
+  } else {
+    getJson = getJson.then(() => readJsonFromFile(fromCwd('node_modules', dep, 'package.json')))
+    if (checkInRegistry) {
+      getJson = getJson.catch(() => readJsonFromRegistry(dep))
+    }
   }
+
   getJson = getJson.catch(err => {
     if (ifArg('verbose') || ifArg('v')) {
       // console.error(err);
@@ -92,7 +110,15 @@ let timeout = setTimeout(function repeat() {
   timeout = setTimeout(repeat, 1000)
 }, 1000)
 
-loop(getDeps(readJsonFromFileSync(fromCwd('package.json'))))
+
+let done
+if (projectToFindIn) {
+  done = readJsonFromRegistry(projectToFindIn).then(getDeps).then(loop)
+} else {
+  done = loop(getDeps(readJsonFromFileSync(fromCwd('package.json'))))
+}
+
+done
   .then(() => {
     clearTimeout(timeout)
     console.log('---')
@@ -101,6 +127,9 @@ loop(getDeps(readJsonFromFileSync(fromCwd('package.json'))))
       depsWithNodeGyp.map(d => console.log(d))
     } else {
       console.log('Could not find any dependencies which use', depToFind);
+      if (!(ifArg('dev') || ifArg('D'))) {
+        console.log('Use `-D` option to check in devDependencies');
+      }
     }
   })
   .catch(console.error)
