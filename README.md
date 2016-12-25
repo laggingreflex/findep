@@ -1,5 +1,6 @@
 # findep
 [![npm](https://img.shields.io/npm/v/findep.svg)](https://www.npmjs.com/package/findep)
+[![npm](https://img.shields.io/node/v/findep.svg)](http://nodejs.org)
 
 Goes through a project's dependencies (and their dependencies recursively) to find a specified package.
 
