@@ -1,119 +1,152 @@
 #!/usr/bin/env node
 
-const fs = require('fs')
-const path = require('path')
 const {
-  ifArg,
+  args,
+  fromCwd,
   readJsonFromFile,
   readJsonFromFileSync,
-  readJsonFromRegistry
+  readJsonFromRegistry,
+  readJsonFromGithubProject,
+  log,
+  print
 } = require('./utils')
+const { showUsage, showErrors } = require('./help')
 
-const cwd = process.cwd()
-const argv = process.argv.slice(2)
-
-const fromCwd = (...p) => path.join(cwd, ...p)
-
-const checkInRegistry = ifArg('registry') || ifArg('R')
-let depToFind, projectToFindIn;
-const positionalArgs = argv.filter(a => !a.startsWith('-'))
-if (!positionalArgs.length) {
-  console.error('Error: Need a dependency to find. Eg.: findep node-gyp')
-  process.exit(1)
-} else if (positionalArgs.length === 1) {
-  depToFind = positionalArgs[0]
-} else if (positionalArgs.length === 2) {
-  depToFind = positionalArgs[1]
-  projectToFindIn = positionalArgs[0]
+if (args.help) {
+  showUsage(true)
+  process.exit(0)
 }
 
-if (projectToFindIn) {
-  if (!checkInRegistry) {
-    console.log('`-R` is required when looking for in another package to check in npm registry');
+const depsToFind = args._
+depsToFind.toString = () => '[' + depsToFind.join(', ') + ']'
+
+if (!depsToFind.length) {
+  showErrors('Need a dependency to find.')
+  showUsage()
+  process.exit(1)
+}
+
+if (args.external) {
+  if (!args.registry) {
+    showErrors('`-r` is required when checking an external package')
     process.exit(1)
   }
-  console.log('Looking for', depToFind, 'in', projectToFindIn, '...');
+  log(`Looking for ${depsToFind} in ${args.external}...`);
 } else {
-  console.log('Looking for', depToFind, '...');
+  log(`Looking for ${depsToFind}...`);
 }
 
-if (checkInRegistry) {
-  console.log('Checking in npm registry, this may take a while...');
+if (args.registry) {
+  log('Checking in npm registry, this may take a while...');
 } else {
-  console.log('Checking in node_modules/**. Use `-R` option to check in npm registry');
+  log('Checking in node_modules/**. Use `-r` option to check in npm registry');
+}
+
+if (args.devDependencies) {
+  log('Checking "devDependencies", this may take a while...');
+} else {
+  log('Checking "dependencies". Use `-D` option to check in "devDependencies"');
 }
 
 const getDeps = pkg => Object.assign({},
   pkg.dependencies,
-  ifArg('dev') || ifArg('D') ? pkg.devDependencies : {},
-  ifArg('optional') ? pkg.optionalDependencies : {},
-  ifArg('peer') ? pkg.peerDependencies : {}, {}
+  args.devDependencies ? pkg.devDependencies : {},
+  args.optionalDependencies ? pkg.optionalDependencies : {},
+  args.peerDependencies ? pkg.peerDependencies : {}, {}
 )
 
 const depsChecked = []
 const depsWithNodeGyp = []
 
 const loop = (deps, pDep) => Promise.all(Object.entries(deps).map(([dep, ver]) => new Promise((resolve, reject) => {
-  if (ifArg('verbose') || ifArg('v')) {
-    console.log('Checking', dep, '...');
-  }
   if (depsChecked.includes(dep)) {
     return resolve(depsWithNodeGyp)
   } else {
     depsChecked.push(dep)
   }
+  if (args.verbose) {
+    print(dep + ', ')
+  } else {
+    print('.')
+  }
   let getJson = Promise.resolve()
-  if (projectToFindIn) {
+  if (args.external) {
     getJson = getJson.then(() => readJsonFromRegistry(dep))
   } else {
     getJson = getJson.then(() => readJsonFromFile(fromCwd('node_modules', dep, 'package.json')))
-    if (checkInRegistry) {
+    if (args.registry) {
       getJson = getJson.catch(() => readJsonFromRegistry(dep))
     }
   }
 
   getJson = getJson.catch(err => {
-    if (ifArg('verbose') || ifArg('v')) {
+    if (args.verbose) {
       // console.error(err);
     }
   })
 
-  // if (!ifArg('halt')) {
+  // if (!args.haltOnErr) {
   //   getJsonFromFile = getJsonFromFile.catch(err => {
-  //     if (ifArg('verbose') || ifArg('v')) {
+  //     if (args.verbose) {
   //       console.error(err);
   //     }
   //   })
   // }
   getJson.then(pkg => {
-    // console.log(pkg);
+    // log(pkg);
     if (!pkg) {
       return resolve()
     }
     const deps = getDeps(pkg)
-    if (depToFind in deps) {
-      const include = pDep ? pDep + ' > ' + dep : dep
-      if (!depsWithNodeGyp.includes(include)) {
-        depsWithNodeGyp.push(include)
+    Promise.all(depsToFind.map(depToFind => new Promise((resolve, reject) => {
+      if (depToFind in deps) {
+        const include = (pDep ? pDep + ' > ' + dep : dep) + ' > ' + depToFind
+        if (!depsWithNodeGyp.includes(include)) {
+          depsWithNodeGyp.push(include)
+        }
+        // return resolve()
+      } else {
+        // deeper
+        // return loop(deps, (pDep || dep)).then(resolve, reject)
       }
-      return resolve()
-    } else {
-      // deeper
       return loop(deps, (pDep || dep)).then(resolve, reject)
-    }
+    }))).then(resolve, reject)
+
+    // depsToFind.forEach(depToFind => {
+    //   if (depToFind in deps) {
+    //     const include = pDep ? pDep + ' > ' + dep : dep
+    //     if (!depsWithNodeGyp.includes(include)) {
+    //       depsWithNodeGyp.push(include)
+    //     }
+    //     return resolve()
+    //   } else {
+    //     // deeper
+    //     return loop(deps, (pDep || dep)).then(resolve, reject)
+    //   }
+    // })
+
   })
 })))
 
 
+let lastLength = 0
 let timeout = setTimeout(function repeat() {
-  console.log('Checked', depsChecked.length, 'packages...');
+  const len = depsChecked.length;
+  if (len && len !== lastLength) {
+    print('\nChecked ' + len + ' packages ');
+  }
+  lastLength = len;
   timeout = setTimeout(repeat, 1000)
 }, 1000)
 
 
 let done
-if (projectToFindIn) {
-  done = readJsonFromRegistry(projectToFindIn).then(getDeps).then(loop)
+if (args.external) {
+  if (args.external.includes('/')) {
+    done = readJsonFromGithubProject(args.external).then(getDeps).then(loop)
+  } else {
+    done = readJsonFromRegistry(args.external).then(getDeps).then(loop)
+  }
 } else {
   done = loop(getDeps(readJsonFromFileSync(fromCwd('package.json'))))
 }
@@ -121,14 +154,14 @@ if (projectToFindIn) {
 done
   .then(() => {
     clearTimeout(timeout)
-    console.log('---')
+    log('\n---')
     if (depsWithNodeGyp.length) {
-      console.log('Found', depsWithNodeGyp.length, 'dependencies which use', depToFind + ':');
-      depsWithNodeGyp.map(d => console.log(d))
+      log('Found', depsWithNodeGyp.length, 'dependencies that use', depsToFind + ':');
+      depsWithNodeGyp.map(d => log(d))
     } else {
-      console.log('Could not find any dependencies which use', depToFind);
-      if (!(ifArg('dev') || ifArg('D'))) {
-        console.log('Use `-D` option to check in devDependencies');
+      log('Could not find any dependencies which use', depsToFind);
+      if (!args.checkDevDependencies) {
+        log('Use `-D` option to check in devDependencies');
       }
     }
   })
