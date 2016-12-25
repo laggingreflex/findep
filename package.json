@@ -1,12 +1,14 @@
 {
   "name": "findep",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Find dependency in a project",
   "main": "index.js",
   "bin": "index.js",
   "author": "laggingreflex",
   "repository": "laggingreflex/findep",
-  "engines" : { "node" : ">=7" },
+  "engines": {
+    "node": ">=7"
+  },
   "dependencies": {
     "client-request": "^1.2.0",
     "fs-promise": "^1.0.0",
