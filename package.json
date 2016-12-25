@@ -9,6 +9,7 @@
   "dependencies": {
     "client-request": "^1.2.0",
     "fs-promise": "^1.0.0",
-    "package-json": "^2.4.0"
+    "package-json": "^2.4.0",
+    "yargs": "^6.5.0"
   }
 }
