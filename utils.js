@@ -11,6 +11,10 @@ const args = exports.args = yargs.options({
     alias: 'e',
     type: 'string'
   },
+  greedy: {
+    alias: 'G',
+    type: 'boolean'
+  },
   registry: {
     alias: 'r',
     type: 'boolean'

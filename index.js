@@ -60,10 +60,14 @@ const depsWithNodeGyp = []
 
 const loop = (deps, pDep) => Promise.all(Object.entries(deps).map(([dep, ver]) => new Promise((resolve, reject) => {
   if (depsChecked.includes(dep)) {
-    return resolve(depsWithNodeGyp)
+    return resolve()
   } else {
     depsChecked.push(dep)
   }
+  if (depsWithNodeGyp.length && args.greedy) {
+    return resolve()
+  }
+
   if (args.verbose) {
     print(dep + ', ')
   } else {
@@ -104,12 +108,15 @@ const loop = (deps, pDep) => Promise.all(Object.entries(deps).map(([dep, ver]) =
         if (!depsWithNodeGyp.includes(include)) {
           depsWithNodeGyp.push(include)
         }
-        // return resolve()
-      } else {
-        // deeper
-        // return loop(deps, (pDep || dep)).then(resolve, reject)
+        if (args.greedy) {
+          return resolve()
+        }
       }
-      return loop(deps, (pDep || dep)).then(resolve, reject)
+      if (depsWithNodeGyp.length && args.greedy) {
+        return resolve()
+      } else {
+        return loop(deps, (pDep || dep)).then(resolve, reject)
+      }
     }))).then(resolve, reject)
 
     // depsToFind.forEach(depToFind => {

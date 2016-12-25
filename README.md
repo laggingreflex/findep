@@ -4,6 +4,12 @@
 
 Goes through a project's dependencies (and their dependencies recursively) to find a specified package.
 
+Useful for finding out if a project has for eg. 'node-gyp' as a dependency.
+
+A lot faster than `npm ls node-gyp` and even [`npm-remote-ls`][npm-remote-ls] (for remote packages) especially with the `--greedy` option.
+
+It can also check a remote github project.
+
 ## Install
 
 ```sh
@@ -15,6 +21,7 @@ npm i -g findep
 ```sh
 -r, --registry        Check npm registry (otherwise just checks './node_modules' directory). Required with '-e'
 -e, --external        Checks an external [npm/github] project (otherwise checks current './' directory). '-r' required
+-G, --greedy          Stops as soon as it find any one of the specified dependencies
 -D, --dev             Check "devDependencies" (otherwise just checks "dependencies")
 --optional            Check "optionalDependencies"
 --peer                Check "peerDependencies"
@@ -29,12 +36,11 @@ Examples:
   # Checks if the npm package 'node-sass' has a 'node-gyp' dependency
   findep node-gyp -e node-sass
 
-  # Checks if the github project 'AngularClass/angular2-webpack-starter' has these dependencies:
-  $ findep he mime lodash ms -r -e AngularClass/angular2-webpack-starter
+  # Greedily checks if the project 'AngularClass/angular2-webpack-starter' has at least one of these dependencies including "devDependencies":
+  $ findep he mime lodash ms -GDr -e AngularClass/angular2-webpack-starter
   Looking for [he, mime, lodash, ms] in AngularClass/angular2-webpack-starter...
-  Found 4 dependencies that use [he, mime, lodash, ms]:
-  http-server > ecstatic > he
-  http-server > ecstatic > mime
-  http-server > debug > ms
-  http-server > async > lodash
+  Found 16 dependencies that use [he, mime, lodash, ms]:
+  assets-webpack-plugin > lodash
+  string-replace-loader > lodash
+  karma-coverage > lodash
 ```
