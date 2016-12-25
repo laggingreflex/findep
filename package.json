@@ -6,6 +6,7 @@
   "bin": "index.js",
   "author": "laggingreflex",
   "repository": "laggingreflex/findep",
+  "engines" : { "node" : ">=7" },
   "dependencies": {
     "client-request": "^1.2.0",
     "fs-promise": "^1.0.0",
