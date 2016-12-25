@@ -58,7 +58,7 @@ const getDeps = pkg => Object.assign({},
 const depsChecked = []
 const depsWithNodeGyp = []
 
-const loop = (deps, pDep) => Promise.all(Object.entries(deps).map(([dep, ver]) => new Promise((resolve, reject) => {
+const loop = (deps, pDeps) => Promise.all(Object.entries(deps).map(([dep, ver]) => new Promise((resolve, reject) => {
   if (depsChecked.includes(dep)) {
     return resolve()
   } else {
@@ -104,7 +104,7 @@ const loop = (deps, pDep) => Promise.all(Object.entries(deps).map(([dep, ver]) =
     const deps = getDeps(pkg)
     Promise.all(depsToFind.map(depToFind => new Promise((resolve, reject) => {
       if (depToFind in deps) {
-        const include = (pDep ? pDep + ' > ' + dep : dep) + ' > ' + depToFind
+        const include = (pDeps ? pDeps.join(' > ') + ' > ' + dep : dep) + ' > ' + depToFind
         if (!depsWithNodeGyp.includes(include)) {
           depsWithNodeGyp.push(include)
         }
@@ -115,29 +115,19 @@ const loop = (deps, pDep) => Promise.all(Object.entries(deps).map(([dep, ver]) =
       if (depsWithNodeGyp.length && args.greedy) {
         return resolve()
       } else {
-        return loop(deps, (pDep || dep)).then(resolve, reject)
+        return loop(deps, (pDeps || []).concat([dep])).then(resolve, reject)
       }
     }))).then(resolve, reject)
-
-    // depsToFind.forEach(depToFind => {
-    //   if (depToFind in deps) {
-    //     const include = pDep ? pDep + ' > ' + dep : dep
-    //     if (!depsWithNodeGyp.includes(include)) {
-    //       depsWithNodeGyp.push(include)
-    //     }
-    //     return resolve()
-    //   } else {
-    //     // deeper
-    //     return loop(deps, (pDep || dep)).then(resolve, reject)
-    //   }
-    // })
-
   })
 })))
 
 
 let lastLength = 0
 let timeout = setTimeout(function repeat() {
+  if (depsWithNodeGyp.length && args.greedy) {
+    mainDone()
+    process.exit(0)
+  }
   const len = depsChecked.length;
   if (len && len !== lastLength) {
     print('\nChecked ' + len + ' packages ');
@@ -147,31 +137,34 @@ let timeout = setTimeout(function repeat() {
 }, 1000)
 
 
-let done
+let mainPromise
 if (args.external) {
   if (args.external.includes('/')) {
-    done = readJsonFromGithubProject(args.external).then(getDeps).then(loop)
+    mainPromise = readJsonFromGithubProject(args.external).then(getDeps).then(loop)
   } else {
-    done = readJsonFromRegistry(args.external).then(getDeps).then(loop)
+    mainPromise = readJsonFromRegistry(args.external).then(getDeps).then(loop)
   }
 } else {
-  done = loop(getDeps(readJsonFromFileSync(fromCwd('package.json'))))
+  console.log(fromCwd('package.json'));
+  mainPromise = readJsonFromFile(fromCwd('package.json')).then(getDeps).then(loop)
 }
 
-done
-  .then(() => {
-    clearTimeout(timeout)
-    log('\n---')
-    if (depsWithNodeGyp.length) {
-      log('Found', depsWithNodeGyp.length, 'dependencies that use', depsToFind + ':');
-      depsWithNodeGyp.map(d => log(d))
-    } else {
-      log('Could not find any dependencies which use', depsToFind);
-      if (!args.checkDevDependencies) {
-        log('Use `-D` option to check in devDependencies');
-      }
-    }
-  })
+mainPromise
   .catch(console.error)
+  .then(mainDone)
+
+function mainDone() {
+  clearTimeout(timeout)
+  log('\n---')
+  if (depsWithNodeGyp.length) {
+    log('Found', depsWithNodeGyp.length, 'dependencies that use', depsToFind + ':');
+    depsWithNodeGyp.map(d => log(d))
+  } else {
+    log('Could not find any dependencies which use', depsToFind);
+    if (!args.checkDevDependencies) {
+      log('Use `-D` option to check in devDependencies');
+    }
+  }
+}
 
 // process.on('unhandledRejection', console.error)

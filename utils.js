@@ -57,9 +57,9 @@ const args = exports.args = yargs.options({
 // args.haltOnErr = args.has('halt')
 // args.help = args.has('help') || args.has('h') || args.has('\\?')
 
-exports.fromCwd = a => (...path) => join(cwd, ...path)
+exports.fromCwd = (...path) => join(cwd, ...path)
 
-exports.readJsonFromFileSync = file => JSON.parse(fs.readFileSync(file, 'utf8'))
+exports.readJsonFromFile = fs.readJSON.bind(fs)
 
 const fileCache = {}
 exports.readJsonFromFile = file => {
