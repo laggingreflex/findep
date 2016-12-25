@@ -84,11 +84,20 @@ exports.readJsonFromRegistry = (packageName, version) => {
 }
 
 exports.readJsonFromGithubProject = (project) => {
-  return request({uri: `https://raw.githubusercontent.com/${project}/master/package.json`}).then(JSON.parse)
+  return request({ uri: `https://raw.githubusercontent.com/${project}/master/package.json` }).then(JSON.parse)
 }
 
 exports.log = console.log.bind(console)
 exports.print = process.stdout.write.bind(process.stdout)
+exports.clearPrint = msg => {
+  process.stdout.clearLine();
+  process.stdout.cursorTo(0);
+  exports.print(msg);
+}
+const spinnerArr = ['|', '/', '-', '\\']
+const spinnerLen = spinnerArr.length
+let spinnerCtr = 0
+exports.printSpinner = () => process.stdout.write('\b' + spinnerArr[spinnerCtr >= spinnerLen ? spinnerCtr = 0 : spinnerCtr++])
 
 // exports.readJsonFromRegistry = packageName =>
 //   request({ uri: 'http://registry.npmjs.org/' + packageName }).then(JSON.parse)

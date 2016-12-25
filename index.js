@@ -8,7 +8,9 @@ const {
   readJsonFromRegistry,
   readJsonFromGithubProject,
   log,
-  print
+  print,
+  clearPrint,
+  printSpinner
 } = require('./utils')
 const { showUsage, showErrors } = require('./help')
 
@@ -71,7 +73,8 @@ const loop = (deps, pDeps) => Promise.all(Object.entries(deps).map(([dep, ver]) 
   if (args.verbose) {
     print(dep + ', ')
   } else {
-    print('.')
+    printSpinner();
+    // print('.')
   }
   let getJson = Promise.resolve()
   if (args.external) {
@@ -130,7 +133,7 @@ let timeout = setTimeout(function repeat() {
   }
   const len = depsChecked.length;
   if (len && len !== lastLength) {
-    print('\nChecked ' + len + ' packages ');
+    clearPrint('Checked ' + len + ' packages  ');
   }
   lastLength = len;
   timeout = setTimeout(repeat, 1000)
