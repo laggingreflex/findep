@@ -74,7 +74,6 @@ const loop = (deps, pDeps) => Promise.all(Object.entries(deps).map(([dep, ver]) 
     print(dep + ', ')
   } else {
     printSpinner();
-    // print('.')
   }
   let getJson = Promise.resolve()
   if (args.external) {
@@ -86,19 +85,15 @@ const loop = (deps, pDeps) => Promise.all(Object.entries(deps).map(([dep, ver]) 
     }
   }
 
-  getJson = getJson.catch(err => {
-    if (args.verbose) {
-      // console.error(err);
-    }
-  })
+  if (args.halt) {
+    getJson = getJson.catch(err => {
+      showErrors(err)
+      process.exit(1)
+    })
+  } else {
+    getJson = getJson.catch(err => ({}))
+  }
 
-  // if (!args.haltOnErr) {
-  //   getJsonFromFile = getJsonFromFile.catch(err => {
-  //     if (args.verbose) {
-  //       console.error(err);
-  //     }
-  //   })
-  // }
   getJson.then(pkg => {
     // log(pkg);
     if (!pkg) {
@@ -148,7 +143,6 @@ if (args.external) {
     mainPromise = readJsonFromRegistry(args.external).then(getDeps).then(loop)
   }
 } else {
-  console.log(fromCwd('package.json'));
   mainPromise = readJsonFromFile(fromCwd('package.json')).then(getDeps).then(loop)
 }
 
