@@ -157,7 +157,7 @@ function mainDone() {
     log('Found', depsWithNodeGyp.length, 'dependencies that use', depsToFind + ':');
     depsWithNodeGyp.map(d => log(d))
   } else {
-    log('Could not find any dependencies which use', depsToFind);
+    log('Could not find any dependencies which use', depsToFind.toString());
     if (!args.checkDevDependencies) {
       log('Use `-D` option to check in devDependencies');
     }
